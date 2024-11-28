@@ -54,7 +54,13 @@ class LoginController extends Controller
         }
 
         $user = User::find(Auth::id());
-        $token = $user->createToken('auth_token')->plainTextToken;
-        return response()->json(['token' => $token]);    
+
+        if($user->role == 'admin' || $user->role == 'user'){
+            $token = $user->createToken('auth_token')->plainTextToken;
+            return response()->json(['token' => $token, 'role' => $user->role]);    
+        } else {
+            return response()->json(['message' => 'No account'], 401);
+        }
+       
     }
 }
