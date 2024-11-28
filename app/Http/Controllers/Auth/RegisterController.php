@@ -73,28 +73,35 @@ class RegisterController extends Controller
 
     public function create(Request $request)
     {
-        // $validated = $request->validate([
-        //     'name' => ['required', 'string', 'max:255'],
-        //     'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-        //     'contact_number' => ['nullable', 'string', 'max:15'],
-        //     'password' => ['required', 'string', 'min:8', 'confirmed'],
-        // ]);
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255'],
-           
-            'password' => ['required', 'string'],
+        // Validation logic
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'contact_number' => 'required|string|max:15',
+            'password' => 'required|string|min:8|confirmed',
         ]);
 
+        if ($validator->fails()) {
+            // Return validation errors
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Create the user
         $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            
-            'password' => bcrypt($validated['password']),
+            'name' => $request->name,
+            'email' => $request->email,
+            'contact_number' => $request->contact_number,
+            'password' => bcrypt($request->password),
         ]);
 
-        return response()->json(['message' => 'Registration successful', 'user' => $user], 201);
+        // Return success response
+        return response()->json([
+            'message' => 'User registered successfully',
+            'user' => $user,
+        ], 201);
     }
 
 }

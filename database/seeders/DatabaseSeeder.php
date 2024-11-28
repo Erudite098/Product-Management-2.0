@@ -14,24 +14,26 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        Product::factory(10)->create();
+        //Product::factory(20)->create();
 
         // Admin user
-        // User::create([
-        //     'name' => 'Admin User',
-        //     'email' => 'admin@example.com',
-        //     'password' => bcrypt('admin'),
-        //     'role' => 'admin',
+        User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'contact_number' => '1234567899',
+            'password' => bcrypt('admin'),
+            'role' => 'admin',
             
-        // ]);
+        ]);
 
-        // // Regular user
-        // User::create([
-        //     'name' => 'John Doe',
-        //     'email' => 'user@example.com',
-        //     'password' => bcrypt('user'),
-        //     'role' => 'user',
+        // Regular user
+        User::create([
+            'name' => 'John Doe',
+            'email' => 'user@example.com',
+            'contact_number' => '1234567890',
+            'password' => bcrypt('user'),
+            'role' => 'user',
             
-        // ]);
+        ]);
     }
 }
