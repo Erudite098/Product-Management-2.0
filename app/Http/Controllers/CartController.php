@@ -35,19 +35,10 @@ class CartController extends Controller
             ],
             [
                 // 'quantity_requested' => $request->quantity_requested,
-                // 'quantity_requested' => \DB::raw("quantity_requested + {$request->quantity_requested}"),
+                'quantity_requested' => \DB::raw("quantity_requested + {$request->quantity_requested}"),
             ]
         );
-        // if (auth('sanctum')->check()) {
-        //     $userId = auth('sanctum')->id();
-        //     Cart::updateOrCreate(
-        //         ['user_id' => $userId, 'product_id' => $productId],
-        //         ['quantity_requested' => DB::raw('quantity_requested + {$request->quantity_requested}')]
-        //     );
-        // } else {
-        //     return response()->json(['error' => 'User not authenticated'], 401);
-        // }      
-
+    
         return response()->json(['message' => 'Product added to cart', 'cart' => $cart]);
     }
 
