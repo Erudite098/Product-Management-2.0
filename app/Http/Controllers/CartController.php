@@ -3,98 +3,125 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cart;
-use App\Models\CartItem;
 use App\Models\Product; // Add Product model for validation
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class CartController extends Controller
 {
-    // Add item to the cart
-    public function addItemToCart(Request $request)
+    /**
+     * Add an item to the cart
+     */
+    public function addItem(Request $request)
     {
-        // Validate the request data
-        $validated = $request->validate([
-            'product_name' => 'required|string|max:255|exists:products,name', // Validate that the product exists
-            'price' => 'required|numeric',
-            'quantity' => 'required|integer|min:1',
-            'cart_id' => 'required|exists:carts,id', // Ensure cart exists
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'quantity_requested' => 'required',
         ]);
 
-        // Ensure the cart belongs to the authenticated user
-        $cart = Cart::where('user_id', Auth::id())->findOrFail($validated['cart_id']);
+        $product = Product::find($request->product_id);
 
-        // Calculate total price
-        $totalPrice = $validated['price'] * $validated['quantity'];
+        // Check if there is enough stock available
+        if ($product->quantity < $request->quantity_requested) {
+            return response()->json(['message' => 'Not enough stock available'], 400);
+        }
 
-        // Create the cart item
-        $cartItem = CartItem::create([
-            'cart_id' => $cart->id,
-            'product_name' => $validated['product_name'],
-            'price' => $validated['price'],
-            'quantity' => $validated['quantity'],
-            'total_price' => $totalPrice,
-        ]);
+        // Add the product to the cart or update quantity if it already exists
+        $cart = Cart::updateOrCreate(
+            [
+                'user_id' => auth()->id(),
+                'product_id' => $request->product_id,
+                'quantity_requested' => $request->quantity_requested,
+            ],
+            [
+                // 'quantity_requested' => $request->quantity_requested,
+                // 'quantity_requested' => \DB::raw("quantity_requested + {$request->quantity_requested}"),
+            ]
+        );
+        // if (auth('sanctum')->check()) {
+        //     $userId = auth('sanctum')->id();
+        //     Cart::updateOrCreate(
+        //         ['user_id' => $userId, 'product_id' => $productId],
+        //         ['quantity_requested' => DB::raw('quantity_requested + {$request->quantity_requested}')]
+        //     );
+        // } else {
+        //     return response()->json(['error' => 'User not authenticated'], 401);
+        // }      
 
-        return response()->json([
-            'message' => 'Item added to cart successfully.',
-            'cart_item' => $cartItem
-        ], 201);
+        return response()->json(['message' => 'Product added to cart', 'cart' => $cart]);
     }
 
-    // Update cart item quantity
-    public function updateItemQuantity(Request $request, $cartItemId)
+    /**
+     * View cart items
+     */
+    public function viewCart()
     {
-        // Validate the request data
-        $validated = $request->validate([
-            'quantity' => 'required|integer|min:1',
-        ]);
+        $cartItems = Cart::with('product')
+            ->where('user_id', auth()->id())
+            ->get();
 
-        // Find the cart item
-        $cartItem = CartItem::findOrFail($cartItemId);
 
-        // Ensure the cart item belongs to the authenticated user
-        $cart = Cart::where('user_id', Auth::id())->findOrFail($cartItem->cart_id);
-
-        // Update quantity and total price
-        $cartItem->quantity = $validated['quantity'];
-        $cartItem->total_price = $cartItem->price * $validated['quantity'];
-        $cartItem->save();
+        $total = $cartItems->sum(fn($item) => $item->quantity_requested * $item->product->price);
 
         return response()->json([
-            'message' => 'Cart item updated successfully.',
-            'cart_item' => $cartItem
+            'cartItems' => $cartItems,
+            'total' => $total,
         ]);
     }
 
-    // Remove item from the cart
-    public function removeItemFromCart($cartItemId)
+    /**
+     * Update the quantity of a cart item
+     */
+    public function updateCart(Request $request, $cartItemId)
     {
-        // Find the cart item
-        $cartItem = CartItem::findOrFail($cartItemId);
+        $request->validate([
+            'quantity_requested' => 'required|integer|min:0',
+        ]);
 
-        // Ensure the cart item belongs to the authenticated user
-        $cart = Cart::where('user_id', Auth::id())->findOrFail($cartItem->cart_id);
+        $cartItem = Cart::findOrFail($cartItemId);
 
-        // Delete the cart item
+        // Ensure the cart item belongs to the logged-in user
+        if ($cartItem->user_id != auth()->id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $product = Product::find($cartItem->product_id);
+
+        // Check if there is enough stock for the updated quantity
+        if ($product->quantity < $request->quantity_requested) {
+            return response()->json(['message' => 'Not available'], 400);
+        }
+
+        $cartItem->update(['quantity_requested' => $request->quantity_requested]);
+
+        return response()->json(['message' => 'Cart updated', 'cartItem' => $cartItem]);
+    }
+
+    /**
+     * Remove an item from the cart
+     */
+    public function removeItem($cartItemId)
+    {
+        
+        $cartItem = Cart::findOrFail($cartItemId);
+
+        // Ensure the cart item belongs to the logged-in user
+        if ($cartItem->user_id != auth()->id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         $cartItem->delete();
 
-        return response()->json([
-            'message' => 'Item removed from cart successfully.'
-        ]);
+        return response()->json(['message' => 'Item removed from cart']);
     }
 
-    // View items in a cart
-    public function viewCartItems($cartId)
+    /**
+     * Clearning the cart when chhecking out
+     */
+    public function clearCart()
     {
-        // Ensure the cart belongs to the authenticated user
-        $cart = Cart::where('user_id', Auth::id())->findOrFail($cartId);
-
-        // Get all cart items for the specified cart
-        $cartItems = CartItem::where('cart_id', $cartId)->get();
-
-        return response()->json([
-            'cart_items' => $cartItems
-        ]);
+        Cart::where('user_id', auth()->id())->delete();
+        
+        return response()->json(['message' => 'Cart cleared']);
     }
 }
