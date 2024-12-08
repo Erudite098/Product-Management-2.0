@@ -16,7 +16,7 @@ class CartController extends Controller
     {
         $request->validate([
             'product_id' => 'required|exists:products,id',
-            'quantity_requested' => 'required',
+            'quantity_requested' => 'required|integer|min:1',
         ]);
 
         $product = Product::find($request->product_id);
@@ -26,20 +26,25 @@ class CartController extends Controller
             return response()->json(['message' => 'Not enough stock available'], 400);
         }
 
-        // Add the product to the cart or update quantity if it already exists
-        $cart = Cart::updateOrCreate(
-            [
+        // Check if the product already exists in the cart
+        $cartItem = Cart::where('user_id', auth()->id())
+            ->where('product_id', $request->product_id)
+            ->first();
+
+        if ($cartItem) {
+            // If it exists, increment the quantity
+            $cartItem->quantity_requested += $request->quantity_requested;
+            $cartItem->save();
+        } else {
+            // If it does not exist, create a new cart item
+            $cartItem = Cart::create([
                 'user_id' => auth()->id(),
                 'product_id' => $request->product_id,
                 'quantity_requested' => $request->quantity_requested,
-            ],
-            [
-                // 'quantity_requested' => $request->quantity_requested,
-                'quantity_requested' => \DB::raw("quantity_requested + {$request->quantity_requested}"),
-            ]
-        );
-    
-        return response()->json(['message' => 'Product added to cart', 'cart' => $cart]);
+            ]);
+        }
+
+        return response()->json(['message' => 'Product added to cart', 'cart' => $cartItem]);
     }
 
     /**
